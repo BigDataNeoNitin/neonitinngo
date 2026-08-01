@@ -16,9 +16,70 @@ deploy on Netlify as-is.
 - `css/style.css` — All styling, driven by CSS variables (see below)
 - `js/script.js` — Nav, counters, testimonial slider, FAQ, forms, scroll reveal
 
-All contact/donate/volunteer/newsletter forms are wired for **Netlify Forms**
-(`data-netlify="true"`) — no backend or server needed. Submissions appear
-automatically in your Netlify dashboard under **Forms** once deployed.
+The contact, volunteer and newsletter forms are wired for **Netlify Forms**
+(`data-netlify="true"`) — submissions appear automatically in your Netlify
+dashboard under **Forms**. The **Donate** form processes real payments
+through **Razorpay**, using two serverless functions in `netlify/functions/`
+— see the setup section below before going live.
+
+## Setting up real donation payments (Razorpay)
+
+The Donate form on `get-involved.html` is fully wired to accept live
+payments (UPI, cards, netbanking, wallets) — you just need to connect your
+own Razorpay account. Nothing runs on a server you manage; it's two small
+serverless functions that Netlify hosts for free.
+
+**1. Create a Razorpay account**
+Sign up at https://razorpay.com and complete KYC (required before you can
+accept live payments — for an NGO you'll typically submit your trust deed
+and 12A/80G certificates).
+
+**2. Get your API keys**
+In the Razorpay Dashboard: **Settings → API Keys → Generate Key**.
+You'll get a `Key Id` and `Key Secret`. Start in **Test Mode** to try the
+flow safely with fake cards before switching to Live Mode.
+
+**3. Add the keys to Netlify**
+In your Netlify site: **Site settings → Environment variables → Add a variable**,
+and add both:
+```
+RAZORPAY_KEY_ID = rzp_test_xxxxxxxxxxxx   (or rzp_live_... when ready)
+RAZORPAY_KEY_SECRET = your_secret_key
+```
+Then trigger a redeploy (**Deploys → Trigger deploy**) so the functions can
+read them. The secret key is never exposed to the browser — only the two
+functions in `netlify/functions/` use it.
+
+**4. Test it**
+Open your deployed site's Get Involved page, pick an amount, and pay with
+a Razorpay test card (e.g. `4111 1111 1111 1111`, any future expiry, any
+CVV — full list at https://razorpay.com/docs/payments/payments/test-card-upi-details/).
+A successful test payment will show the on-page success message and appear
+as a `donation-completed` submission under **Site settings → Forms** in
+Netlify, along with the Razorpay payment ID.
+
+**5. Go live**
+Once KYC is approved, replace the test keys in Netlify's environment
+variables with your `rzp_live_...` key and secret, and redeploy. Real
+payments will now be accepted.
+
+**How the payment flow works, technically:**
+1. Donor picks an amount and fills in their details, then submits the form.
+2. `js/donate.js` calls `netlify/functions/create-order.js`, which asks
+   Razorpay to create an order (your secret key never leaves the server).
+3. Razorpay's checkout modal opens in the browser and collects payment.
+4. On success, `js/donate.js` calls `netlify/functions/verify-payment.js`,
+   which recomputes the payment signature server-side to confirm the
+   payment is genuine (this step is what prevents someone from faking a
+   "success" message in their browser).
+5. Once verified, the confirmed donation is logged into Netlify Forms
+   (`donation-completed`) so you have a record — donor name, email, phone,
+   amount, frequency and the Razorpay payment/order IDs.
+
+**Receipts:** Razorpay can auto-email a payment receipt; for an official
+80G tax receipt, connect Razorpay's webhook (or check Forms daily) to
+trigger your own receipt email/PDF — this site doesn't generate 80G PDFs
+automatically yet.
 
 ## Deploy to Netlify (2 minutes)
 

@@ -1,0 +1,9 @@
+{
+  "name": "neo-nitin-foundation-site",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Neo Nitin Foundation website with Razorpay-powered donations via Netlify Functions.",
+  "dependencies": {
+    "razorpay": "^2.9.4"
+  }
+}
