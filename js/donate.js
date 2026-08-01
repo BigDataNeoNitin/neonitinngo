@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const verifyRes = await fetch('/.netlify/functions/verify-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(response)
+              body: JSON.stringify({ ...response, name, email, phone, amount, frequency })
             });
             const verifyData = await verifyRes.json();
 

@@ -167,3 +167,81 @@ page and in the footer.
   HTML are built in for accessibility.
 - No external JS frameworks or build tools — works by opening `index.html`
   directly or via any static host (Netlify, Vercel, GitHub Pages, etc.).
+
+## Optional: Add a Supabase backend (recommended)
+
+To store contact submissions, registrations and confirmed donations in a searchable database and to provide an admin dashboard with auth, use Supabase (free tier available).
+
+1. Create a Supabase project at https://app.supabase.com and note the project URL.
+2. In Project Settings → API, copy the Service Role key (keep this secret) and the Project URL.
+3. In Netlify Site settings → Environment variables, add:
+
+```
+SUPABASE_URL = https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY = <your-service-role-key>
+RAZORPAY_KEY_ID = rzp_test_xxx
+RAZORPAY_KEY_SECRET = <your_razorpay_secret>
+```
+
+4. Run this SQL (SQL editor in Supabase) to create recommended tables:
+
+```sql
+-- donations
+create table if not exists donations (
+  id bigserial primary key,
+  order_id text,
+  payment_id text,
+  donor_name text,
+  donor_email text,
+  donor_phone text,
+  amount numeric,
+  frequency text,
+  currency text,
+  verified boolean default false,
+  created_at timestamptz default now()
+);
+
+-- contacts
+create table if not exists contacts (
+  id bigserial primary key,
+  name text,
+  email text,
+  phone text,
+  message text,
+  created_at timestamptz default now()
+);
+
+-- volunteers / registrations
+create table if not exists volunteers (
+  id bigserial primary key,
+  name text,
+  email text,
+  phone text,
+  village text,
+  skills text,
+  created_at timestamptz default now()
+);
+
+-- newsletters
+create table if not exists newsletters (
+  id bigserial primary key,
+  email text,
+  created_at timestamptz default now()
+);
+
+-- generic submissions
+create table if not exists submissions (
+  id bigserial primary key,
+  form_name text,
+  payload jsonb,
+  created_at timestamptz default now()
+);
+```
+
+5. Redeploy the Netlify site so functions can read the env vars.
+
+Notes:
+- The serverless functions added (`netlify/functions/submit-form.js` and the modified `verify-payment.js`) write to Supabase using the Service Role key. Keep that key secret (Netlify env variables are appropriate).
+- For an admin dashboard, enable Supabase Auth (email/password) and build a small admin page that queries the tables. Supabase also provides a built-in table viewer in its dashboard.
+
+If you want, proceed now and the code changes to wire forms and payments to Supabase can be committed and tested; otherwise ask for a guided setup walkthrough.
