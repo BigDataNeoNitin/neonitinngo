@@ -175,6 +175,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       e.preventDefault();
       const data = new FormData(form);
+      // Send a copy to Supabase via our serverless function (non-blocking)
+      fetch('/.netlify/functions/submit-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formName: form.getAttribute('name'), fields: Object.fromEntries(data) })
+      }).catch(()=>{});
+
       fetch('/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

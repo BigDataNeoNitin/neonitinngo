@@ -1,7 +1,14 @@
 // Verifies a completed Razorpay payment by recomputing the HMAC signature
-// server-side. Never trust a "payment succeeded" message from the browser
-// alone -- this is the step that actually confirms the money is real.
+// server-side, and records verified donations into Supabase.
 const crypto = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // store in Netlify env
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -15,7 +22,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ verified: false, error: 'Invalid request body' }) };
   }
 
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = payload;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, name, email, phone, amount, frequency } = payload;
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
     return { statusCode: 400, body: JSON.stringify({ verified: false, error: 'Missing payment fields' }) };
@@ -32,6 +39,27 @@ exports.handler = async (event) => {
     .digest('hex');
 
   const verified = expectedSignature === razorpay_signature;
+
+  // If verified, try to record the donation in Supabase (best-effort)
+  if (verified && supabase) {
+    try {
+      await supabase.from('donations').insert([{
+        order_id: razorpay_order_id,
+        payment_id: razorpay_payment_id,
+        donor_name: name || null,
+        donor_email: email || null,
+        donor_phone: phone || null,
+        amount: amount ? Number(amount) : null,
+        frequency: frequency || null,
+        currency: 'INR',
+        verified: true,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (err) {
+      // Do not fail the verification for a DB insert error; log to function logs
+      console.error('Supabase insert failed:', err && err.message ? err.message : err);
+    }
+  }
 
   return {
     statusCode: 200,
